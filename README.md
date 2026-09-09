@@ -56,7 +56,7 @@ ai_podcast_generator/
 │   └── host_b_line_1.mp3    
 │
 └── output/                  # The final generated artifacts
-    └── final_podcast.mp3    # The completed, fully mixed episode ready for upload.
+    └── final_podcast.mp3    # The completed, fully mixed episode ready for upload
 
     
 
