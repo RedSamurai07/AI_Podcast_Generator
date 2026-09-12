@@ -1,0 +1,9 @@
+streamlit == 1.63.0
+langgraph == 1.2.11
+langchain-core == 1.6.0
+openai == 2.54.0
+elevenlabs == 2.67.0
+pydub == 0.25.1
+python-dotenv == 1.2.2
+psycopg2-binary == 2.9.12
+supabase >= 2.10.0, < 3.0.0
