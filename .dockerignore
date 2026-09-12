@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.git
+.gitignore
+.streamlit/secrets.toml
+output/
+temp/
+podcast_memory.db
+README.md
