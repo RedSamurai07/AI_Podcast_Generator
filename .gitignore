@@ -7,4 +7,5 @@ __pycache__/
 streamlit/secrets.toml
 secrets.toml
 .coverage
+coverage.xml
 .pytest_cache/
