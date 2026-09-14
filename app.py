@@ -1,16 +1,95 @@
 import os
 import time
 import json
-import sqlite3
 import streamlit as st
+from supabase import create_client, Client
 from main import app as graph_app
-from src.config import DB_PATH
 
 st.set_page_config(
     page_title="AI Podcast Studio",
     page_icon="🎙️",
     layout="wide"
 )
+
+# ----------------- SUPABASE CLIENT SETUP -----------------
+# Use the publishable/anon key so user auth tokens can attach properly
+SUPABASE_URL = os.getenv("SUPABASE_URL") or (st.secrets.get("SUPABASE_URL") if hasattr(st, "secrets") else "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or (st.secrets.get("SUPABASE_KEY") if hasattr(st, "secrets") else "")
+
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    st.error("⚠️ Supabase credentials missing. Please set SUPABASE_URL and SUPABASE_KEY.")
+
+# ----------------- AUTHENTICATION & SESSION STATE -----------------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+def login_user(email, password):
+    try:
+        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state.user = res.user
+        st.success("Signed in successfully!")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Login failed: {e}")
+
+def signup_user(email, password):
+    try:
+        res = supabase.auth.sign_up({"email": email, "password": password})
+        if res.user:
+            st.session_state.user = res.user
+            st.success("Account created successfully! Logging you in...")
+            st.rerun()
+    except Exception as e:
+        st.error(f"Registration failed: {e}")
+
+def logout_user():
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    st.session_state.user = None
+    st.rerun()
+
+# ----------------- AUTH GATEWAY VIEW -----------------
+if not st.session_state.user:
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("🎙️ AI Live Podcast Generator")
+        st.caption("Sign in or create an account to start generating studio-grade podcasts.")
+        
+        tab_login, tab_signup = st.tabs(["🔑 Log In", "📝 Create Account"])
+        
+        with tab_login:
+            with st.form("login_form"):
+                email = st.text_input("Email / Username", placeholder="recruiter@company.com")
+                password = st.text_input("Password", type="password")
+                submit_login = st.form_submit_button("Sign In", use_container_width=True)
+                if submit_login:
+                    if email and password:
+                        login_user(email.strip(), password)
+                    else:
+                        st.warning("Please enter both email and password.")
+
+        with tab_signup:
+            with st.form("signup_form"):
+                new_email = st.text_input("Email", placeholder="name@domain.com")
+                new_password = st.text_input("Choose Password (min 6 characters)", type="password")
+                submit_signup = st.form_submit_button("Create Account", use_container_width=True)
+                if submit_signup:
+                    if len(new_password) < 6:
+                        st.error("Password must be at least 6 characters.")
+                    elif new_email and new_password:
+                        signup_user(new_email.strip(), new_password)
+                    else:
+                        st.warning("Please fill in all fields.")
+    st.stop()  # Halt execution until authenticated
+
+# =========================================================
+# THE STUDIO UI BELOW ONLY RUNS FOR LOGGED-IN USERS
+# =========================================================
 
 # Avatar Mapping
 HOST_AVATARS = {
@@ -37,42 +116,82 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Helper Functions
+# ----------------- SUPABASE DATA HELPERS -----------------
 def get_recorded_episodes():
-    """Fetches list of existing episodes from SQLite database."""
-    if not os.path.exists(DB_PATH):
+    """Fetches user-specific podcast episodes from Supabase."""
+    if not supabase or not st.session_state.user:
         return []
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
     try:
-        cur.execute("SELECT id, topic, created_at, output_audio_path FROM episodes ORDER BY id DESC")
-        episodes = cur.fetchall()
-    except sqlite3.OperationalError:
-        episodes = []
-    conn.close()
-    return episodes
+        response = (
+            supabase.table("podcast_history")
+            .select("id, topic, created_at, audio_url")
+            .eq("user_id", st.session_state.user.id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return response.data or []
+    except Exception as e:
+        st.sidebar.error(f"Error fetching archives: {e}")
+        return []
 
-# Sidebar: Memory & Archive
+def upload_to_supabase_storage(local_path: str, bucket_name: str = "podcast-audio") -> str:
+    """Uploads the final audio to Supabase Storage and returns a public URL."""
+    if not supabase or not os.path.exists(local_path):
+        return ""
+    
+    file_name = f"{st.session_state.user.id}_{int(time.time())}_{os.path.basename(local_path)}"
+    
+    with open(local_path, "rb") as f:
+        supabase.storage.from_(bucket_name).upload(
+            path=file_name,
+            file=f,
+            file_options={"content-type": "audio/mpeg", "upsert": "true"}
+        )
+        
+    return supabase.storage.from_(bucket_name).get_public_url(file_name)
+
+def save_episode_to_db(topic: str, audio_url: str, script: list):
+    """Saves generated episode metadata to the database."""
+    if not supabase or not st.session_state.user:
+        return
+    try:
+        supabase.table("podcast_history").insert({
+            "user_id": st.session_state.user.id,
+            "topic": topic,
+            "audio_url": audio_url,
+            "script": json.dumps(script)
+        }).execute()
+    except Exception as e:
+        st.error(f"Failed to record episode to archive: {e}")
+
+# ----------------- SIDEBAR: USER INFO & MEMORY ARCHIVE -----------------
 with st.sidebar:
+    st.write(f"Logged in as:\n**{st.session_state.user.email}**")
+    if st.button("🚪 Log Out", use_container_width=True):
+        logout_user()
+    st.divider()
+
     st.header("🗄️ Studio Memory Archive")
-    st.caption("Persistent show memory stored in SQLite")
+    st.caption("Persistent show memory stored in Supabase")
     past_eps = get_recorded_episodes()
     
     if past_eps:
         for ep in past_eps:
-            with st.expander(f"Ep {ep[0]}: {ep[1]}"):
-                st.write(f"**Recorded:** {ep[2]}")
-                if ep[3] and os.path.exists(ep[3]):
-                    st.audio(ep[3], format="audio/mp3")
+            ep_title = ep.get("topic", "Untitled Episode")
+            created_at = ep.get("created_at", "")[:10]
+            audio_url = ep.get("audio_url", "")
+            
+            with st.expander(f"🎙️ {ep_title}"):
+                st.write(f"**Recorded:** {created_at}")
+                if audio_url:
+                    st.audio(audio_url, format="audio/mp3")
     else:
         st.info("No recorded episodes yet.")
 
-
-# Main Studio Dashboard
+# ----------------- MAIN STUDIO DASHBOARD -----------------
 st.title("🎙️ AI Live Podcast Generator")
 st.caption("Multi-host conversational engine powered by OpenAI, OpenRouter, and ElevenLabs")
 
-# Studio Hosts Dynamic Header Area
 header_placeholder = st.container()
 
 def display_hosts_header(hosts=None):
@@ -135,11 +254,18 @@ if submit_btn and topic.strip():
 
     status_box.update(label="🎙️ Recording session complete!", state="complete", expanded=False)
 
-    # Final Output Audio Player
+    # Final Output Audio Handling & Upload
     st.subheader("🎧 Final Produced Episode (Master Mix)")
     final_audio = pipeline_state.get("final_podcast_path", "output/final_podcast.mp3")
+    
+    public_audio_url = ""
     if os.path.exists(final_audio):
-        st.audio(final_audio, format="audio/mp3")
+        with st.spinner("Archiving master track to cloud storage..."):
+            public_audio_url = upload_to_supabase_storage(final_audio)
+            save_episode_to_db(topic.strip(), public_audio_url, pipeline_state.get("script", []))
+        
+        # Stream master audio
+        st.audio(public_audio_url if public_audio_url else final_audio, format="audio/mp3")
     st.divider()
 
     # Live Turn-by-Turn Studio Conversation
@@ -153,7 +279,6 @@ if submit_btn and topic.strip():
         speaker_key = turn.get("speaker", "Host A")
         avatar = HOST_AVATARS.get(speaker_key, "🎙️")
         
-        # Pulls dynamic name directly, with no bracketed defaults
         host_info = hosts.get(speaker_key, {})
         display_name = host_info.get("name", speaker_key)
         
@@ -161,6 +286,6 @@ if submit_btn and topic.strip():
             st.markdown(f"**{display_name}**")
             st.write(turn.get("text", ""))
             
-            # Line-by-line audio player
+            # Line-by-line audio turn
             if i < len(audio_files) and os.path.exists(audio_files[i]):
                 st.audio(audio_files[i], format="audio/mp3")
