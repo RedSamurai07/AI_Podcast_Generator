@@ -7,6 +7,7 @@
 [![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-121212?logo=langchain&logoColor=white)](https://www.langchain.com/)
 [![Docker](https://img.shields.io/badge/Runtime-Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Tests](https://img.shields.io/badge/Tests-10%20passing-2EA043)](tests/)
+[![Coverage](https://img.shields.io/badge/Coverage-91%25-2EA043)](tests/)
 [![Deployment](https://img.shields.io/badge/Deployment-Render-46E3B7)](https://render.com/)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20Dashboard-00A98F)](https://ai-podcast-generator.onrender.com)
 
