@@ -13,13 +13,19 @@ st.set_page_config(
 
 # ----------------- SUPABASE CLIENT SETUP -----------------
 def get_config_val(key: str) -> str:
-    """Safely extracts credentials from Streamlit secrets or OS env, stripping quotes/spaces."""
-    val = ""
-    if hasattr(st, "secrets") and key in st.secrets:
-        val = str(st.secrets[key])
-    elif os.getenv(key):
-        val = str(os.getenv(key))
-    return val.strip().strip('"').strip("'")
+    """Safely extracts credentials from OS env or Streamlit secrets, stripping quotes/spaces."""
+    # Check OS environment first (Render environment variables)
+    val = os.getenv(key, "")
+    
+    # Fallback to Streamlit secrets only if not present in OS env
+    if not val:
+        try:
+            if hasattr(st, "secrets") and key in st.secrets:
+                val = str(st.secrets[key])
+        except Exception:
+            val = ""
+            
+    return str(val).strip().strip('"').strip("'")
 
 SUPABASE_URL = get_config_val("SUPABASE_URL")
 SUPABASE_KEY = get_config_val("SUPABASE_KEY")
