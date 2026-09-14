@@ -1,8 +1,8 @@
+import json
 import os
 import time
-import json
 import streamlit as st
-from supabase import create_client, Client
+from supabase import Client, create_client
 from main import app as graph_app
 
 st.set_page_config(
@@ -14,10 +14,8 @@ st.set_page_config(
 # ----------------- SUPABASE CLIENT SETUP -----------------
 def get_config_val(key: str) -> str:
     """Safely extracts credentials from OS env or Streamlit secrets, stripping quotes/spaces."""
-    # Check OS environment first (Render environment variables)
     val = os.getenv(key, "")
     
-    # Fallback to Streamlit secrets only if not present in OS env
     if not val:
         try:
             if hasattr(st, "secrets") and key in st.secrets:
@@ -104,7 +102,7 @@ if not st.session_state.user:
                         signup_user(new_email.strip(), new_password)
                     else:
                         st.warning("Please fill in all fields.")
-    st.stop()  # Halt execution until authenticated
+    st.stop()
 
 # =========================================================
 # THE STUDIO UI BELOW ONLY RUNS FOR LOGGED-IN USERS
@@ -160,14 +158,17 @@ def upload_to_supabase_storage(local_path: str, bucket_name: str = "podcast-audi
     
     file_name = f"{st.session_state.user.id}_{int(time.time())}_{os.path.basename(local_path)}"
     
-    with open(local_path, "rb") as f:
-        supabase.storage.from_(bucket_name).upload(
-            path=file_name,
-            file=f,
-            file_options={"content-type": "audio/mpeg", "upsert": "true"}
-        )
-        
-    return supabase.storage.from_(bucket_name).get_public_url(file_name)
+    try:
+        with open(local_path, "rb") as f:
+            supabase.storage.from_(bucket_name).upload(
+                path=file_name,
+                file=f,
+                file_options={"content-type": "audio/mpeg", "upsert": "true"}
+            )
+        return supabase.storage.from_(bucket_name).get_public_url(file_name)
+    except Exception as e:
+        st.warning(f"Audio upload to cloud storage failed: {e}")
+        return ""
 
 def save_episode_to_db(topic: str, audio_url: str, script: list):
     """Saves generated episode metadata to the database."""
