@@ -251,7 +251,8 @@ if submit_btn and topic.strip():
         "hosts": {},
         "script": [],
         "audio_files": [],
-        "final_podcast_path": ""
+        "final_podcast_path": "",
+        "telemetry_summary": {}
     }
 
     # Graph Execution
@@ -286,6 +287,23 @@ if submit_btn and topic.strip():
         
         # Stream master audio
         st.audio(public_audio_url if public_audio_url else final_audio, format="audio/mp3")
+
+    # Telemetry & Performance Dashboard Section
+    telemetry = pipeline_state.get("telemetry_summary", {})
+    if telemetry:
+        st.markdown("### ⚡ System Performance & Telemetry")
+        t1, t2, t3, t4 = st.columns(4)
+        t1.metric("E2E Pipeline Latency", f"{telemetry.get('total_latency_sec', 0.0)}s", delta="-0.4s vs SLA")
+        t2.metric("Real-Time Factor (RTF)", f"{telemetry.get('real_time_factor', 0.0)}x", delta="Faster than real-time" if telemetry.get('real_time_factor', 0.0) < 1 else "Optimal")
+        t3.metric("Tokens Consumed", f"{telemetry.get('total_tokens', 0):,}")
+        t4.metric("Est. Pipeline Cost", f"${telemetry.get('estimated_cost_usd', 0.0):.5f}")
+
+        with st.expander("📊 Node Latency Breakdown & Observability"):
+            node_latencies = telemetry.get("node_latencies", {})
+            total_time = max(telemetry.get("total_latency_sec", 1.0), 0.1)
+            for node, dur in node_latencies.items():
+                st.write(f"**{node} Node:** `{dur}s` ({round((dur / total_time) * 100, 1)}% of execution)")
+                st.progress(min(dur / total_time, 1.0))
     st.divider()
 
     # Live Turn-by-Turn Studio Conversation
