@@ -12,15 +12,28 @@ st.set_page_config(
 )
 
 # ----------------- SUPABASE CLIENT SETUP -----------------
-# Use the publishable/anon key so user auth tokens can attach properly
-SUPABASE_URL = os.getenv("SUPABASE_URL") or (st.secrets.get("SUPABASE_URL") if hasattr(st, "secrets") else "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY") or (st.secrets.get("SUPABASE_KEY") if hasattr(st, "secrets") else "")
+def get_config_val(key: str) -> str:
+    """Safely extracts credentials from Streamlit secrets or OS env, stripping quotes/spaces."""
+    val = ""
+    if hasattr(st, "secrets") and key in st.secrets:
+        val = str(st.secrets[key])
+    elif os.getenv(key):
+        val = str(os.getenv(key))
+    return val.strip().strip('"').strip("'")
+
+SUPABASE_URL = get_config_val("SUPABASE_URL")
+SUPABASE_KEY = get_config_val("SUPABASE_KEY")
 
 supabase: Client = None
-if SUPABASE_URL and SUPABASE_KEY:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+if SUPABASE_URL.startswith("http://") or SUPABASE_URL.startswith("https://"):
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        st.error(f"Failed to initialize Supabase client: {e}")
+        st.stop()
 else:
-    st.error("⚠️ Supabase credentials missing. Please set SUPABASE_URL and SUPABASE_KEY.")
+    st.error(f"⚠️ Invalid or missing SUPABASE_URL. Received: '{SUPABASE_URL}'")
+    st.stop()
 
 # ----------------- AUTHENTICATION & SESSION STATE -----------------
 if "user" not in st.session_state:
