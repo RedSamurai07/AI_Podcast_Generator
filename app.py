@@ -37,10 +37,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-# ---------------------------------------------------------------------------
 # Helper Functions
-# ---------------------------------------------------------------------------
 def get_recorded_episodes():
     """Fetches list of existing episodes from SQLite database."""
     if not os.path.exists(DB_PATH):
