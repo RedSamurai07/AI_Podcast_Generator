@@ -1,11 +1,24 @@
+# API Configuration
 .env
+
+# Temp and output
 temp/
-output/*.mp3
+output/
+
+# Database
 podcast_memory.db
+
+# Python cache
 __pycache__/
 *.pyc.env
+
+# Streamlit secrets
 streamlit/secrets.toml
 secrets.toml
+
+# Coverage
 .coverage
 coverage.xml
+
+# Pytest cache
 .pytest_cache/
