@@ -8,8 +8,9 @@
 [![Docker](https://img.shields.io/badge/Runtime-Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Tests](https://img.shields.io/badge/Tests-10%20passing-2EA043)](tests/)
 [![Deployment](https://img.shields.io/badge/Deployment-Render-46E3B7)](https://render.com/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20Dashboard-00A98F)](https://ai-podcast-generator.onrender.com)
 
-**Live studio dashboard:** [AI Podcast Studio](app.py)
+**Live dashboard:** [ai-podcast-generator.onrender.com](https://ai-podcast-generator.onrender.com)
 
 This project turns a single topic or debate prompt into a full studio-grade multi-host podcast episode. Specialized agents fetch live context and past show memories, write dynamic multi-persona dialogue scripts, synthesize distinct voice profiles for each host via ElevenLabs, and perform master audio engineering with background music ducking using `pydub`.
 
